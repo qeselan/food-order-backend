@@ -8,3 +8,22 @@ export interface CreateVandorInput {
   email: string;
   password: string;
 }
+
+export interface EditVandorInputs {
+  name: string;
+  address: string;
+  phone: string;
+  foodType: [string];
+}
+
+export interface VandorLoginInputs {
+  email: string;
+  password: string;
+}
+
+export interface VandorPayload {
+  _id: string;
+  email: string;
+  name: string;
+  foodType: [string];
+}
