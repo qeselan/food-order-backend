@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { CreateVandorInput } from '../dto';
 import { Vandor } from '../models';
 import { GeneratePassword, GenerateSalt } from '../utilitiy';
@@ -11,11 +11,7 @@ export const FindVandor = async (id: string | undefined, email?: string) => {
   }
 };
 
-export const CreateVandor = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const CreateVandor = async (req: Request, res: Response) => {
   const {
     name,
     address,
@@ -57,11 +53,7 @@ export const CreateVandor = async (
   return res.json(createdVandor);
 };
 
-export const GetVandors = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const GetVandors = async (req: Request, res: Response) => {
   const vandors = await Vandor.find();
 
   if (vandors !== null) {
@@ -71,11 +63,7 @@ export const GetVandors = async (
   return res.json({ message: 'No vandor exist.' });
 };
 
-export const GetVandorByID = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const GetVandorByID = async (req: Request, res: Response) => {
   const vandorId = req.params.id;
   const vandor = await FindVandor(vandorId);
   if (vandor !== null) {

@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model, mongo } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
 interface VandorDoc extends Document {
   name: string;
@@ -13,7 +13,7 @@ interface VandorDoc extends Document {
   serviceAvailable: boolean;
   coverImages: [string];
   rating: number;
-  // foods: any;
+  foods: any;
 }
 
 const VandorSchema = new Schema(
@@ -29,8 +29,8 @@ const VandorSchema = new Schema(
     salt: { type: String, required: true },
     serviceAvailable: { type: Boolean },
     coverImages: { type: [String] },
-    rating: { type: Number }
-    // foods: [{ type: mongoose.SchemaTypes.ObjectId, ref: 'food' }]
+    rating: { type: Number },
+    foods: [{ type: mongoose.SchemaTypes.ObjectId, ref: 'food' }]
   },
   {
     toJSON: {
