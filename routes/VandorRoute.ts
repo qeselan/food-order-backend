@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import {
   AddFood,
   GetFoods,
@@ -34,9 +34,5 @@ router.patch('/service', UpdateVandorService);
 
 router.post('/food', images, AddFood);
 router.get('/food', GetFoods);
-
-router.get('/', (req: Request, res: Response, next: NextFunction) => {
-  res.json({ message: 'Hello from Vandor' });
-});
 
 export { router as VandorRoute };
