@@ -1,8 +1,19 @@
 import { Request, Response } from 'express';
 import { validate } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { CreateCustomerInputs } from '../dto/Customer.dto';
-import { GenerateOtp, GeneratePassword, GenerateSalt } from '../utilitiy';
+import {
+  CreateCustomerInputs,
+  CustomerLoginInputs,
+  EditCustomerProfileInputs
+} from '../dto';
+import {
+  GenerateOtp,
+  GeneratePassword,
+  GenerateSalt,
+  GenerateSignature,
+  onRequestOTP,
+  validatePassword
+} from '../utilitiy';
 import { Customer } from '../models';
 
 export const CustomerSignUp = async (req: Request, res: Response) => {
@@ -17,6 +28,15 @@ export const CustomerSignUp = async (req: Request, res: Response) => {
   }
 
   const { email, phone, password } = customerInputs;
+
+  const existingCustomer = await Customer.findOne({
+    $or: [{ email: email }, { phone: phone }]
+  });
+
+  if (existingCustomer)
+    return res.status(409).json({
+      message: 'An user exist with the provided email or phone number!'
+    });
 
   const salt = await GenerateSalt();
   const hashedPassword = await GeneratePassword(password, salt);
@@ -38,19 +58,149 @@ export const CustomerSignUp = async (req: Request, res: Response) => {
     lng: 0
   });
 
-  if (result) {
-    // send the OTP to customer
-    // generate the signature
-    // send the result to client
-  }
+  if (!result) return res.status(400).json({ message: 'Error with signup!' });
+
+  // send the OTP to customer
+  await onRequestOTP(otp, phone);
+
+  // generate the signature
+  const signature = GenerateSignature({
+    _id: result._id,
+    email: result.email,
+    verified: result.verified
+  });
+
+  // send the result to client
+  return res.status(201).json({
+    signature: signature,
+    email: result.email,
+    verified: result.verified
+  });
 };
 
-export const CustomerLogin = async (req: Request, res: Response) => {};
+export const CustomerLogin = async (req: Request, res: Response) => {
+  const loginInputs = plainToClass(CustomerLoginInputs, req.body);
 
-export const CustomerVerify = async (req: Request, res: Response) => {};
+  const loginErrors = await validate(loginInputs, {
+    validationError: { target: true }
+  });
 
-export const CustomerOtp = async (req: Request, res: Response) => {};
+  if (loginErrors.length > 0) return res.status(400).json(loginErrors);
 
-export const GetCustomerProfile = async (req: Request, res: Response) => {};
+  const { email, password } = loginInputs;
 
-export const EditCustomerProfile = async (req: Request, res: Response) => {};
+  const customer = await Customer.findOne({ email: email });
+
+  if (!customer) return res.status(400).json({ message: 'Wrong credentials!' });
+
+  const validation = await validatePassword(
+    password,
+    customer.password,
+    customer.salt
+  );
+
+  if (!validation)
+    return res.status(400).json({ message: 'Wrong credentials' });
+
+  const signature = GenerateSignature({
+    _id: customer._id,
+    email: customer.email,
+    verified: customer.verified
+  });
+
+  return res.status(201).json({
+    signature: signature,
+    email: customer.email,
+    verified: customer.verified
+  });
+};
+
+export const CustomerVerify = async (req: Request, res: Response) => {
+  const { otp } = req.body;
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json({ message: 'No user provided!' });
+
+  const profile = await Customer.findById(customer._id);
+
+  if (!profile)
+    return res.status(400).json({ message: 'User does not exist!' });
+
+  if (profile.otp !== parseInt(otp) || profile.otp_expiry <= new Date())
+    res.status(400).json({ message: 'OTP expired!' });
+
+  if (profile.verified === true)
+    res.status(200).json({ message: 'User already verified!' });
+
+  profile.verified = true;
+
+  const updatedCustomer = await profile.save();
+
+  const signature = GenerateSignature({
+    _id: updatedCustomer._id,
+    email: updatedCustomer.email,
+    verified: updatedCustomer.verified
+  });
+
+  return res.status(201).json({
+    signature: signature,
+    verified: updatedCustomer.verified,
+    email: updatedCustomer.email
+  });
+};
+
+export const CustomerOtp = async (req: Request, res: Response) => {
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json('User not provided!');
+
+  const profile = await Customer.findById(customer._id);
+
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  const { otp, expiry } = GenerateOtp();
+
+  profile.otp = otp;
+  profile.otp_expiry = expiry;
+
+  await profile.save();
+  await onRequestOTP(otp, profile.phone);
+
+  res
+    .status(200)
+    .json({ message: 'OTP sent to your registered phone number!' });
+};
+
+export const GetCustomerProfile = async (req: Request, res: Response) => {
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json('User not provided!');
+
+  const profile = await Customer.findById(customer._id);
+
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  res.status(200).json(profile);
+};
+
+export const EditCustomerProfile = async (req: Request, res: Response) => {
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json('User not provided!');
+
+  const profile = await Customer.findById(customer._id);
+
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  const profileInputs = plainToClass(EditCustomerProfileInputs, req.body);
+
+  const { firstName, lastName, address } = profileInputs;
+
+  profile.firstName = firstName;
+  profile.lastName = lastName;
+  profile.address = address;
+
+  const updatedCustomer = await profile.save();
+
+  res.status(200).json({ updatedCustomer });
+};

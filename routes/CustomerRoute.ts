@@ -7,6 +7,7 @@ import {
   CustomerSignUp,
   CustomerVerify
 } from '../controllers';
+import { Authenticate } from '../middlewares';
 
 const router = express.Router();
 
@@ -17,6 +18,8 @@ router.post('/signup', CustomerSignUp);
 router.post('/login', CustomerLogin);
 
 /** Authentication Required */
+
+router.use(Authenticate);
 
 // Verify Customer Account
 router.patch('/verify', CustomerVerify);
