@@ -4,7 +4,8 @@ import { plainToClass } from 'class-transformer';
 import {
   CreateCustomerInputs,
   CustomerLoginInputs,
-  EditCustomerProfileInputs
+  EditCustomerProfileInputs,
+  OrderInputs
 } from '../dto';
 import {
   GenerateOtp,
@@ -14,7 +15,8 @@ import {
   onRequestOTP,
   validatePassword
 } from '../utilitiy';
-import { Customer } from '../models';
+import { Customer, Food } from '../models';
+import { Order } from '../models/Order';
 
 export const CustomerSignUp = async (req: Request, res: Response) => {
   const customerInputs = plainToClass(CreateCustomerInputs, req.body);
@@ -203,4 +205,91 @@ export const EditCustomerProfile = async (req: Request, res: Response) => {
   const updatedCustomer = await profile.save();
 
   res.status(200).json({ updatedCustomer });
+};
+
+export const CreateOrder = async (req: Request, res: Response) => {
+  // Grab logged in user
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json('User not provided!');
+
+  // Create and order ID
+  const orderId = `${Math.floor(Math.random() * 89999) + 1000}`;
+
+  const profile = await Customer.findById(customer._id);
+
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  // Grab order items from request
+  const cart = req.body as OrderInputs[];
+
+  const cartItems = [];
+
+  let netAmount = 0;
+
+  const foods = await Food.find()
+    .where('_id')
+    .in(cart.map((item) => item._id))
+    .exec();
+
+  // Calculate order amount
+  foods.map((food) => {
+    cart.map(({ _id, unit }) => {
+      if (food._id == _id) {
+        netAmount += food.price * unit;
+        cartItems.push({ food, unit });
+      }
+    });
+  });
+
+  if (cartItems) {
+    const currentOrder = await Order.create({
+      orderID: orderId,
+      items: cartItems,
+      totalAmount: netAmount,
+      orderDate: new Date(),
+      paidThrough: 'COD',
+      paymentResponse: '',
+      orderStatus: 'Waiting'
+    });
+
+    if (currentOrder) {
+      profile.orders.push(currentOrder);
+      await profile.save();
+
+      return res.status(200).json(currentOrder);
+    }
+  }
+  return res.status(400).json({ message: 'Error with create order!' });
+};
+
+export const GetOrders = async (req: Request, res: Response) => {
+  // Grab logged in user
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json('User not provided!');
+
+  const profile = await Customer.findById(customer._id).populate('orders');
+
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  return res.status(200).json(profile.orders);
+};
+
+export const GetOrderById = async (req: Request, res: Response) => {
+  const orderId = req.params.id;
+  const customer = req.user;
+
+  if (!customer) return res.status(400).json('User not provided!');
+
+  const profile = await Customer.findById(customer._id).populate('orders');
+
+  if (!profile.orders.map((order) => order.id).includes(orderId))
+    return res.status(400).json('Order not found!');
+
+  if (!orderId) return res.status(400).json('Please provide orderID!');
+
+  res
+    .status(200)
+    .json(profile.orders.filter((order) => order.id === orderId)[0]);
 };
