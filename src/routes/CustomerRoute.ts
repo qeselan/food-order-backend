@@ -8,7 +8,10 @@ import {
   CustomerVerify,
   CreateOrder,
   GetOrders,
-  GetOrderById
+  GetOrderById,
+  AddToCart,
+  GetCart,
+  DeleteCart
 } from '../controllers';
 import { Authenticate } from '../middlewares';
 
@@ -32,10 +35,12 @@ router.get('/otp', CustomerOtp);
 
 // Profile
 router.get('/profile', GetCustomerProfile);
-
 router.patch('/profile', EditCustomerProfile);
 
 // Cart
+router.post('/cart', AddToCart);
+router.get('/cart', GetCart);
+router.delete('/cart', DeleteCart);
 
 // Order
 router.post('/create-order', CreateOrder);

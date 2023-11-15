@@ -263,6 +263,52 @@ export const CreateOrder = async (req: Request, res: Response) => {
   return res.status(400).json({ message: 'Error with create order!' });
 };
 
+export const AddToCart = async (req: Request, res: Response) => {
+  const customer = req.user;
+  if (!customer) return res.status(400).json('User not provided!');
+  const profile = await Customer.findById(customer._id).populate('cart.food');
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  const { _id, unit } = req.body as OrderInputs;
+  const food = await Food.findById(_id);
+  if (!food) return res.status(400).json('Food does not exist!');
+
+  const cartItem = profile.cart.filter(
+    (item) => item.food._id.toString() === _id
+  );
+  const item = cartItem.length !== 0 ? cartItem[0] : undefined;
+
+  if (item) {
+    item.unit += unit;
+  } else {
+    if (unit !== 0) profile.cart.push({ food, unit });
+  }
+
+  await profile.save();
+
+  return res.status(200).json(profile.cart);
+};
+
+export const GetCart = async (req: Request, res: Response) => {
+  const customer = req.user;
+  if (!customer) return res.status(400).json('User not provided!');
+  const profile = await Customer.findById(customer._id).populate('cart.food');
+  if (!profile) return res.status(400).json('User does not exist!');
+
+  return res.status(200).json(profile.cart);
+};
+
+export const DeleteCart = async (req: Request, res: Response) => {
+  const customer = req.user;
+  if (!customer) return res.status(400).json('User not provided!');
+  const profile = await Customer.findById(customer._id).populate('cart.food');
+  if (!profile) return res.status(400).json('User does not exist!');
+  profile.cart = [] as any;
+  const updatedCustomer = await profile.save();
+
+  return res.status(200).json(updatedCustomer.cart);
+};
+
 export const GetOrders = async (req: Request, res: Response) => {
   // Grab logged in user
   const customer = req.user;
