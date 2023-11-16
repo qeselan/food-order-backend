@@ -2,7 +2,10 @@ import express from 'express';
 import {
   AddFood,
   GetFoods,
+  GetOrderDetails,
+  GetCurrentOrders,
   GetVandorProfile,
+  ProcessOrder,
   UpdateVandorCoverImage,
   UpdateVandorProfile,
   UpdateVandorService,
@@ -34,5 +37,9 @@ router.patch('/service', UpdateVandorService);
 
 router.post('/food', images, AddFood);
 router.get('/food', GetFoods);
+
+router.get('/orders', GetCurrentOrders);
+router.put('/order/:id/process', ProcessOrder);
+router.get('/order/:id', GetOrderDetails);
 
 export { router as VandorRoute };

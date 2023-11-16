@@ -15,7 +15,7 @@ import {
   onRequestOTP,
   validatePassword
 } from '../utilitiy';
-import { Customer, Food } from '../models';
+import { Customer, Food, Vandor } from '../models';
 import { Order } from '../models/Order';
 
 export const CustomerSignUp = async (req: Request, res: Response) => {
@@ -210,18 +210,24 @@ export const EditCustomerProfile = async (req: Request, res: Response) => {
 export const CreateOrder = async (req: Request, res: Response) => {
   // Grab logged in user
   const customer = req.user;
-
   if (!customer) return res.status(400).json('User not provided!');
 
   // Create and order ID
   const orderId = `${Math.floor(Math.random() * 89999) + 1000}`;
 
   const profile = await Customer.findById(customer._id);
-
   if (!profile) return res.status(400).json('User does not exist!');
 
   // Grab order items from request
   const cart = req.body as OrderInputs[];
+
+  const vandorId = req.params['vandorId'];
+
+  try {
+    await Vandor.findById(vandorId);
+  } catch (error) {
+    return res.status(400).json('Provide valid vandorID!');
+  }
 
   const cartItems = [];
 
@@ -233,8 +239,8 @@ export const CreateOrder = async (req: Request, res: Response) => {
     .exec();
 
   // Calculate order amount
-  foods.map((food) => {
-    cart.map(({ _id, unit }) => {
+  foods.forEach((food) => {
+    cart.forEach(({ _id, unit }) => {
       if (food._id == _id) {
         netAmount += food.price * unit;
         cartItems.push({ food, unit });
@@ -245,20 +251,25 @@ export const CreateOrder = async (req: Request, res: Response) => {
   if (cartItems) {
     const currentOrder = await Order.create({
       orderID: orderId,
+      vandorID: vandorId,
       items: cartItems,
       totalAmount: netAmount,
       orderDate: new Date(),
       paidThrough: 'COD',
       paymentResponse: '',
-      orderStatus: 'Waiting'
+      orderStatus: 'Waiting',
+      remarks: '',
+      deliveryId: '',
+      appliedOffers: false,
+      offerId: '',
+      readyTime: 45
     });
 
-    if (currentOrder) {
-      profile.orders.push(currentOrder);
-      await profile.save();
+    profile.cart = [] as any;
+    profile.orders.push(currentOrder);
+    await profile.save();
 
-      return res.status(200).json(currentOrder);
-    }
+    return res.status(200).json(currentOrder);
   }
   return res.status(400).json({ message: 'Error with create order!' });
 };

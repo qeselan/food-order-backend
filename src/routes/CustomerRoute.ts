@@ -43,7 +43,7 @@ router.get('/cart', GetCart);
 router.delete('/cart', DeleteCart);
 
 // Order
-router.post('/create-order', CreateOrder);
+router.post('/create-order/:vandorId', CreateOrder);
 router.get('/orders', GetOrders);
 router.get('/order/:id', GetOrderById);
 

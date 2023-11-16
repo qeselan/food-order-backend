@@ -3,6 +3,7 @@ import { EditVandorInputs, VandorLoginInputs, CreateFoodInput } from '../dto';
 import { FindVandor } from './AdminController';
 import { GenerateSignature, validatePassword } from '../utilitiy';
 import { Food } from '../models';
+import { Order } from '../models/Order';
 
 export const VandorLogin = async (req: Request, res: Response) => {
   const { email, password } = <VandorLoginInputs>req.body;
@@ -42,7 +43,7 @@ export const GetVandorProfile = async (req: Request, res: Response) => {
     return res.json(existingVendor);
   }
 
-  return res.json({ message: 'Vandor information not found' });
+  return res.json({ message: 'Vandor not found' });
 };
 
 export const UpdateVandorProfile = async (req: Request, res: Response) => {
@@ -51,7 +52,7 @@ export const UpdateVandorProfile = async (req: Request, res: Response) => {
   const user = req.user;
 
   if (!user) {
-    return res.json({ message: 'Vandor information not found' });
+    return res.json({ message: 'Vandor not found' });
   }
 
   const existingVendor = await FindVandor(user._id);
@@ -72,12 +73,12 @@ export const UpdateVandorCoverImage = async (req: Request, res: Response) => {
   const user = req.user;
 
   if (!user) {
-    return res.json({ message: 'Vandor information not found' });
+    return res.json({ message: 'Vandor not found' });
   }
 
   const vandor = await FindVandor(user._id);
 
-  if (!vandor) return res.json({ message: 'Vandor information not found' });
+  if (!vandor) return res.json({ message: 'Vandor not found' });
 
   const files = req.files as [Express.Multer.File];
 
@@ -94,7 +95,7 @@ export const UpdateVandorService = async (req: Request, res: Response) => {
   const user = req.user;
 
   if (!user) {
-    return res.json({ message: 'Vandor information not found' });
+    return res.json({ message: 'Vandor not found' });
   }
 
   const existingVendor = await FindVandor(user._id);
@@ -112,12 +113,12 @@ export const AddFood = async (req: Request, res: Response) => {
   const user = req.user;
 
   if (!user) {
-    return res.json({ message: 'Vandor information not found' });
+    return res.json({ message: 'Vandor not found' });
   }
 
   const vandor = await FindVandor(user._id);
 
-  if (!vandor) return res.json({ message: 'Vandor information not found' });
+  if (!vandor) return res.json({ message: 'Vandor not found' });
 
   const { name, description, category, foodType, readyTime, price } = <
     CreateFoodInput
@@ -149,9 +150,60 @@ export const GetFoods = async (req: Request, res: Response) => {
   const user = req.user;
 
   if (!user) {
-    return res.json({ message: 'Vandor information not found' });
+    return res.json({ message: 'Vandor not found' });
   }
   const foods = await Food.find({ vandorId: user._id });
 
   return res.json(foods);
+};
+
+export const GetCurrentOrders = async (req: Request, res: Response) => {
+  const user = req.user;
+  if (!user) return res.json({ message: 'Vandor not found' });
+
+  const orders = await Order.find({ vandorID: user._id }).populate(
+    'items.food'
+  );
+  return res.status(200).json(orders);
+};
+
+export const GetOrderDetails = async (req: Request, res: Response) => {
+  const orderId = req.params.id;
+  const user = req.user;
+  if (!user) return res.json({ message: 'Vandor not found' });
+
+  const order = await Order.find({
+    vandorID: user._id,
+    orderID: orderId
+  })
+    .populate('items.food')
+    .exec();
+
+  if (!order) return res.json({ message: 'Please provide a valid order ID' });
+
+  return res.status(200).json(order);
+};
+
+export const ProcessOrder = async (req: Request, res: Response) => {
+  const user = req.user;
+  const orderId = req.params.id;
+  const { status, remarks, time } = req.body; // ACCEPT // REJECT // UNDER-PROCESS // READY
+
+  // const order = await Order.findById(orderId).populate('food');
+  const order = (
+    await Order.find({
+      vandorID: user._id,
+      orderID: orderId
+    })
+      .populate('items.food')
+      .exec()
+  )[0];
+  if (!order) res.status(400).json({ message: 'Order not found!' });
+
+  order.orderStatus = status;
+  order.remarks = remarks;
+  if (time) order.readyTime = time;
+  const updatedOrder = await order.save();
+
+  return res.status(200).json({ updatedOrder });
 };
